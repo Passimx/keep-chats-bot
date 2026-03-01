@@ -2,8 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { UserEntity } from './user.entity';
 
 @Entity({ name: 'promocodes' })
 export class PromoCodeEntity {
@@ -12,17 +15,29 @@ export class PromoCodeEntity {
 
   @Column({ name: 'code', type: 'varchar', length: 64, unique: true })
   readonly code: string;
-
-  // Скидка в процентах (0–100). Если 100 — по сути бесплатный ключ.
   @Column({ name: 'discount_percent', type: 'int', default: 0 })
   readonly discountPercent: number;
 
-  // Если true — ключ полностью бесплатный, баланс не списывается.
   @Column({ name: 'is_free_key', type: 'boolean', default: false })
   readonly isFreeKey: boolean;
 
   @Column({ name: 'active', type: 'boolean', default: true })
   readonly active: boolean;
+
+  @Column({
+    name: 'allowed_tariff_ids',
+    type: 'uuid',
+    array: true,
+    nullable: true,
+  })
+  readonly allowedTariffIds: string[] | null;
+
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  readonly userId: string | null;
+
+  @ManyToOne(() => UserEntity, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  readonly user: UserEntity | null;
 
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;

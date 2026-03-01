@@ -713,7 +713,11 @@ export class TelegramService {
     } else {
       const promo = telegramId ? this.pendingPromo.get(telegramId) : undefined;
       const promoCode =
-        promo?.id === id && !promo?.isRenew ? promo.promoCode : undefined;
+        id === Envs.telegram.trialTariffId
+          ? 'TRIAL'
+          : promo?.id === id && !promo?.isRenew
+            ? promo.promoCode
+            : undefined;
       if (telegramId && promo?.id === id && !promo?.isRenew)
         this.pendingPromo.delete(telegramId);
 
@@ -807,7 +811,14 @@ export class TelegramService {
       promoText,
     );
     if (!priceResult.ok) {
-      await ctx.reply(`❌ ${priceResult.error}`).catch(() => {});
+      const backCallback = isRenew ? `RENEW:${id}` : `T:${tariffId}`;
+      await ctx
+        .reply(`❌ ${priceResult.error}`, {
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('⬅️ Назад', backCallback)],
+          ]),
+        })
+        .catch(() => {});
       return false;
     }
 

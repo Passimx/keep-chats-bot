@@ -13,6 +13,7 @@ export const Envs = {
   },
   telegram: {
     botToken: String(process.env.TELEGRAM_BOT_TOKEN),
+    trialTariffId: process.env.TRIAL_TARIFF_ID ?? '',
   },
   crypto: {
     ethereum: {

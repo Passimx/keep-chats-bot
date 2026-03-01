@@ -19,7 +19,7 @@ export class PromoUsageEntity {
   @Column({ name: 'user_id', type: 'varchar' })
   readonly userId: string;
 
-  @Column({ name: 'promocode_id', type: 'varchar' })
+  @Column({ name: 'promo_code_id', type: 'varchar' })
   readonly promoCodeId: string;
 
   @CreateDateColumn({ name: 'used_at' })

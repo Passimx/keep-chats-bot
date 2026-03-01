@@ -224,7 +224,21 @@ export class KeyPurchaseService {
       },
     });
     if (existingUsage) {
-      return { ok: false, error: 'Этот промокод уже был использован' };
+      return {
+        ok: false,
+        error:
+          promo.code === 'TRIAL'
+            ? 'Пробный период уже использован'
+            : 'Этот промокод уже был использован',
+      };
+    }
+
+    if (
+      promo.allowedTariffIds != null &&
+      promo.allowedTariffIds.length > 0 &&
+      !promo.allowedTariffIds.includes(tariffId)
+    ) {
+      return { ok: false, error: 'Промокод не действует на этот тариф' };
     }
 
     const originalPrice = Number(tariff.price);
