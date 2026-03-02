@@ -226,7 +226,7 @@ export class TelegramService {
         });
         return [
           Markup.button.callback(
-            `🔄 Продлить ключ ${index + 1} (Продлить до ${dateStr})`,
+            `🔄 Продлить ключ ${index + 1} (До ${dateStr})`,
             `RENEW:${k.id}`,
           ),
         ];
