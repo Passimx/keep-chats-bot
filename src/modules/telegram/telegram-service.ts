@@ -29,11 +29,11 @@ export class TelegramService {
   ) {}
 
   private readonly initMenu = Markup.inlineKeyboard([
+    [Markup.button.callback('🌐️ Меню', 'BTN_1')],
     [
-      Markup.button.callback('🌐️ Меню', 'BTN_1'),
       Markup.button.callback('📖 Инструкция', 'BTN_4'),
+      Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx'),
     ],
-    [Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx')],
     [
       Markup.button.url(
         '📄 Пользовательское соглашение',
