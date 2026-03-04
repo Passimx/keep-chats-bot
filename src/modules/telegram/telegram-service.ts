@@ -180,11 +180,14 @@ export class TelegramService {
     const message = await ctx.reply('Загрузка видео...');
 
     const filePath = path.join(
-      process.cwd(),
+      __dirname,
+      '../',
+      '../',
       'public',
       'media',
       'add-balance.mp4',
     );
+    console.log(filePath);
 
     await ctx.replyWithVideo(Input.fromLocalFile(filePath), {
       caption:
