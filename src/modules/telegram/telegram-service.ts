@@ -1055,7 +1055,7 @@ export class TelegramService {
       {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback('🌐️ Меню', 'BTN_1')],
+          [Markup.button.callback('⬅️ К тарифам', 'BTN_9')],
           [Markup.button.callback('📖 Инструкция', 'ON_INSTRUCTION')],
           [Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx')],
         ]),
