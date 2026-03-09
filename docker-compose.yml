@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: passimx-vpn-postgres
+    container_name: passimx-proof-bot-postgres
     restart: always
     env_file: .env
     environment:
@@ -18,11 +18,11 @@ services:
     ports:
       - ${PG_PORT}:${PG_PORT}
     networks:
-      - vpn-network
+      - main
 
   app:
-    image: ${DOCKER_IMAGE:-ghcr.io/passimx/vpn-payments:latest}
-    container_name: passimx-vpn-app
+    image: ${DOCKER_IMAGE:-ghcr.io/passimx/proof-bot:latest}
+    container_name: passimx-proof-bot
     restart: always
     env_file: .env
     environment:
@@ -34,25 +34,8 @@ services:
     depends_on:
       - postgres
     networks:
-      - vpn-network
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_POLL_INTERVAL=60
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_ROLLING_RESTART=true
-    command: app
-    depends_on:
-      - app
-    networks:
-      - vpn-network
+      - main
 
 networks:
-  vpn-network:
+  main:
     driver: bridge

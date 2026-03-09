@@ -1,43 +1,24 @@
-import { Check, Column, CreateDateColumn, Entity, OneToMany } from 'typeorm';
-import { UserKeyEntity } from './user-key.entity';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
+import { ChatEntity } from './chat.entity';
 
 @Entity({ name: 'users' })
-@Check('check_balance', 'balance >= 0')
 export class UserEntity {
-  @Column({ name: 'id', type: 'varchar', primary: true })
-  readonly id: string;
-
   @Column({
-    name: 'balance',
+    name: 'id',
     type: 'bigint',
-    default: 0,
+    primary: true,
     transformer: {
       to: (value: number) => value,
       from: (value: string) => Number(value),
     },
   })
-  readonly balance: number;
-
-  @Column({
-    name: 'telegram_id',
-    type: 'bigint',
-    nullable: true,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => Number(value),
-    },
-  })
-  readonly telegramId?: number;
-
-  @Column({
-    name: 'chat_id',
-    type: 'bigint',
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => Number(value),
-    },
-  })
-  readonly chatId?: number;
+  readonly id: number;
 
   @Column({
     name: 'user_name',
@@ -49,6 +30,11 @@ export class UserEntity {
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;
 
-  @OneToMany(() => UserKeyEntity, (userKey) => userKey.user)
-  readonly keys: UserKeyEntity[];
+  @ManyToMany(() => ChatEntity, (chat) => chat.users)
+  @JoinTable({
+    name: 'users_chats',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'chat_id', referencedColumnName: 'id' },
+  })
+  readonly chats: ChatEntity[];
 }

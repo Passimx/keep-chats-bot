@@ -1,121 +1,35 @@
 import { Injectable } from '@nestjs/common';
-import { Context, Input, Markup, Telegraf } from 'telegraf';
+import { Context, Telegraf } from 'telegraf';
+import words from '../../common/words.json';
 
 import { EntityManager } from 'typeorm';
-import { UserEntity } from '../database/entities/user.entity';
-import { TariffEntity } from '../database/entities/tariff.entity';
-import { UserKeyEntity } from '../database/entities/user-key.entity';
 import { Envs } from '../../common/env/envs';
-import { KeyPurchaseService } from '../key-purchase/key-purchase.service';
-import { YookassaBalanceService } from '../yookassa/yookassa-balance.service';
-import { TransactionsService } from '../transactions/transactions.service';
-import path from 'node:path';
+import { UserEntity } from '../database/entities/user.entity';
+import { ChatEntity } from '../database/entities/chat.entity';
+import { MessageEntity } from '../database/entities/message.entity';
+import { MessageType } from './types/message.type';
+import { EditedMessageType } from './types/edited-message.type';
+import { MessageEditHistoryEntity } from '../database/entities/message-edit-history.entity';
+import { UpdateMyChatMemberType } from './types/update-my-chat-member.type';
 
 @Injectable()
 export class TelegramService {
   private bot: Telegraf;
+  private botInfo: UserEntity;
 
-  private amountMap = new Map<number, number>();
-  private addKeyVideoId: string | undefined = Envs.telegram.addKeyVideoId;
-  private addBalanceVideoId: string | undefined =
-    Envs.telegram.addBalanceVideoId;
-  private welcomeVideoId: string | undefined = Envs.telegram.welcomeVideoId;
-  private waitingForPromo = new Map<number, { id: string; isRenew: boolean }>();
-  private pendingPromo = new Map<
-    number,
-    { id: string; promoCode: string; isRenew: boolean }
-  >();
+  constructor(private readonly em: EntityManager) {}
 
-  constructor(
-    private readonly em: EntityManager,
-    private readonly keyPurchaseService: KeyPurchaseService,
-    private readonly transactionsService: TransactionsService,
-    private readonly yookassaBalanceService: YookassaBalanceService,
-  ) {}
-
-  private readonly initMenu = Markup.inlineKeyboard([
-    [Markup.button.callback('🌐️ Меню', 'BTN_1')],
-    [
-      Markup.button.callback('📖 Инструкция', 'ON_INSTRUCTION'),
-      Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx'),
-    ],
-    [
-      Markup.button.url(
-        '📄 Пользовательское соглашение',
-        'https://passimx.ru/info/ru/vpn-user-agreement.html',
-      ),
-    ],
-  ]);
-
-  private readonly backToMenuButton = Markup.button.callback(
-    '⬅️ Назад',
-    'BTN_2',
-  );
-
-  private readonly backToProfileButton = Markup.button.callback(
-    '⬅️ Назад',
-    'BTN_1',
-  );
-
-  private readonly backToPayWaysButton = Markup.button.callback(
-    '⬅️ Назад',
-    'ADD_BALANCE',
-  );
-
-  private readonly backToSetAmountButton = Markup.button.callback(
-    '⬅️ Назад',
-    'BTN_BALANCE',
-  );
-
-  private readonly backToTariffsButton = Markup.button.callback(
-    '⬅️ К тарифам',
-    'BTN_9',
-  );
-
-  private readonly downloadLinks = {
-    mac: 'https://github.com/amnezia-vpn/amnezia-client/releases/download/4.8.12.9/AmneziaVPN_4.8.12.9_macos.pkg',
-    windows:
-      'https://github.com/amnezia-vpn/amnezia-client/releases/download/4.8.12.9/AmneziaVPN_4.8.12.9_x64.exe',
-    android:
-      'https://play.google.com/store/apps/details?id=org.amnezia.vpn&utm_source=amnezia.org&utm_campaign=organic&utm_medium=referral',
-    ios: 'https://apps.apple.com/ru/app/defaultvpn/id6744725017',
-  };
-
-  onModuleInit() {
+  async onModuleInit() {
     this.bot = new Telegraf(Envs.telegram.botToken);
     this.bot.catch((err) => {
       console.error('Telegraf error:', err);
     });
 
     this.bot.start(this.onStart);
-    this.bot.action('BTN_1', this.onBtn1);
-    this.bot.action('BTN_2', this.onBtn2);
-    this.bot.action('ON_INSTRUCTION', this.onInstruction);
-    this.bot.action('BTN_4', this.onBtn4);
-    this.bot.action('BTN_5', this.onBtn5);
-    this.bot.action('BTN_8', this.onBtn8);
-    this.bot.action('BTN_9', this.onBtn9);
-    this.bot.action('BTN_10', this.onBtn10);
-    this.bot.action('BTN_11', this.onBtn11);
-    this.bot.action('BTN_13', this.onBtn13);
-    this.bot.action('BTN_14', this.onBtn14);
-    this.bot.action('BTN_15', this.onBtn15);
-    this.bot.action('BTN_16', this.onBtn16);
-    this.bot.action('BTN_17', this.onBtn17);
-    this.bot.action('BTN_BALANCE', this.onBalance);
-    this.bot.action('ADD_BALANCE', this.onAddBalance);
-    this.bot.action('ON_ADD_BALANCE_INSTRUCTION', this.onAddBalanceInstruction);
-    this.bot.action('ON_ADD_KEY_INSTRUCTION', this.onAddKeyInstruction);
-    this.bot.action(/^T:[\w-]+$/, this.onTariffSelect);
-    this.bot.action(/^PROMO:([\w-]+)$/, this.onPromoClick);
-    this.bot.action(/^BUY:[\w-]+$/, this.onBuyTariff);
-    this.bot.action(/^BUY_XRAY:[\w-]+$/, this.onBuyTariff);
-    this.bot.action(/^BUY_HYST:[\w-]+$/, this.onBuyTariff);
-    this.bot.action(/^BUY_KEY:([\w-]+)$/, this.onBuyTariff);
-    this.bot.action(/^RENEW:([\w-]+)$/, this.onRenewKey);
-    this.bot.action(/^PROMO_KEY:([\w-]+)$/, this.onRenewPromo);
-    this.bot.action(/^BUTTON_MONEY:([\w-]+)$/, this.onSetButtonMoney);
-    this.bot.on('text', this.onText);
+    this.bot.on('my_chat_member', this.onJoinChat);
+    this.bot.on('message', this.onMessage);
+    this.bot.on('edited_message', this.onEditMessage);
+    await this.getMe();
     void this.bot.launch();
   }
 
@@ -123,1059 +37,178 @@ export class TelegramService {
     this.bot.stop();
   }
 
-  onStart = async (ctx: Context) => {
-    const filePath = path.join(
-      __dirname,
-      '../',
-      '../',
-      'public',
-      'media',
-      'welcome.mp4',
-    );
+  onMessage = async (ctx: Context) => {
+    const message = ctx.message as unknown as MessageType;
+    const fromUser = message.from;
+    const chat = message.chat;
+    const title = chat.type === 'private' ? chat.username : chat.title;
 
-    const videoMessage = await ctx.replyWithVideo(
-      this.welcomeVideoId ?? Input.fromLocalFile(filePath),
-      {
-        disable_notification: true,
-      },
-    );
-    await ctx.reply(
-      'Добро пожаловать в PassimX VPN!\nОзнакомьтесь как работать с ботом в разделе <b>Инструкция</b>\n\nВыберите действие:',
-      {
-        parse_mode: 'HTML',
-        ...this.initMenu,
-      },
-    );
-
-    if (!this.welcomeVideoId) {
-      console.log(`Set welcomeVideoId = '${videoMessage.video.file_id}'`);
-      this.welcomeVideoId = videoMessage.video.file_id;
+    if (message.reply_to_message) {
+      const replyMessage = message.reply_to_message;
+      const context = { message: replyMessage } as unknown as Context;
+      await this.onMessage(context);
     }
 
-    const telegramId = ctx?.from?.id;
-    const chatId = ctx?.chat?.id;
-    const user = await this.em.findOne(UserEntity, {
-      where: { telegramId },
+    await this.em.upsert(
+      UserEntity,
+      { id: fromUser.id, userName: fromUser.username },
+      { conflictPaths: ['id'] },
+    );
+
+    const chatEntity = {
+      id: chat.id,
+      title: title,
+      type: chat.type,
+    };
+    await this.em.upsert(ChatEntity, chatEntity, { conflictPaths: ['id'] });
+
+    const chatDb = await this.em.findOneOrFail(ChatEntity, {
+      where: { id: chat.id },
+      relations: ['users'],
     });
-    if (!user) {
-      const id = crypto.randomUUID().replace(/-/g, '');
-      await this.em.insert(UserEntity, {
-        id,
-        telegramId,
-        chatId,
-        userName: ctx?.from?.username,
+
+    if (!chatDb.users.find((user) => user.id === fromUser.id)) {
+      const userDb = await this.em.findOneOrFail(UserEntity, {
+        where: { id: fromUser.id },
       });
-    }
-  };
-
-  onBtn1 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const telegramId = ctx?.from?.id;
-    const user = await this.em.findOne(UserEntity, {
-      where: { telegramId },
-    });
-
-    if (!user) return;
-    this.amountMap.delete(telegramId!);
-
-    await ctx
-      .editMessageText(
-        `ID: ${user.id}\nБаланс: ${user.balance} руб.`,
-        Markup.inlineKeyboard([
-          [Markup.button.callback('🔑 Мои ключи', 'BTN_5')],
-          [Markup.button.callback('🛒 Приобрести ключ', 'BTN_9')],
-          [Markup.button.callback('💸 Пополнить баланс', 'BTN_BALANCE')],
-          [this.backToMenuButton],
-        ]),
-      )
-      .catch(() => {});
-  };
-
-  onBtn2 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    await ctx
-      .editMessageText('Выбери действие:', this.initMenu)
-      .catch(() => {});
-  };
-
-  onAddKeyInstruction = async (ctx: Context) => {
-    const filePath = path.join(
-      __dirname,
-      '../',
-      '../',
-      'public',
-      'media',
-      'add-key.mp4',
-    );
-
-    const videoMessage = await ctx.replyWithVideo(
-      this.addKeyVideoId ?? Input.fromLocalFile(filePath),
-      {
-        caption:
-          'Видео инструкция: Как подключить ключ\n\nНеобходимые шаги:\nМеню -> Приобрести ключ -> Выбор тарифа -> Купить -> Скопировать ключ -> Открыть скаченное приложение -> Вставить ключ -> Подключиться к VPN',
-        width: 720,
-        height: 1280,
-        supports_streaming: true,
-        disable_notification: true,
-      },
-    );
-
-    if (!this.addKeyVideoId) {
-      console.log(`Set addKeyVideoId = '${videoMessage.video.file_id}'`);
-      this.addKeyVideoId = videoMessage.video.file_id;
+      chatDb.users.push(userDb);
+      await this.em.save(chatDb);
     }
 
-    await ctx.reply('Выбери действие:', this.initMenu).catch(() => {});
-  };
-
-  onAddBalanceInstruction = async (ctx: Context) => {
-    const filePath = path.join(
-      __dirname,
-      '../',
-      '../',
-      'public',
-      'media',
-      'add-balance.mp4',
-    );
-
-    const videoMessage = await ctx.replyWithVideo(
-      this.addBalanceVideoId ?? Input.fromLocalFile(filePath),
-      {
-        caption:
-          'Видео инструкция: Как пополнить баланс\n\nНеобходимые шаги:\nМеню -> Пополнить баланс -> Ввод суммы -> Выбор способа оплаты -> Оплата',
-        width: 720,
-        height: 1280,
-        supports_streaming: true,
-        disable_notification: true,
-      },
-    );
-
-    if (!this.addBalanceVideoId) {
-      console.log(`Set addBalanceVideoId = '${videoMessage.video.file_id}'`);
-      this.addBalanceVideoId = videoMessage.video.file_id;
-    }
-
-    await ctx.reply('Выбери действие:', this.initMenu).catch(() => {});
-  };
-
-  onInstruction = async (ctx: Context) => {
-    await ctx.answerCbQuery().catch(() => {});
-    await ctx
-      .editMessageText('Выбери действие:', {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              '💸 Как пополнить баланс',
-              `ON_ADD_BALANCE_INSTRUCTION`,
-            ),
-          ],
-          [
-            Markup.button.callback(
-              '🔐 Как подключить ключ',
-              `ON_ADD_KEY_INSTRUCTION`,
-            ),
-          ],
-          [Markup.button.callback('📲 Ссылки на приложение', `BTN_4`)],
-          [this.backToMenuButton],
-        ]),
-      })
-      .catch(() => {});
-  };
-
-  onBtn4 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const instructionText = '📲 <b>Ссылки на приложение:</b>';
-    await ctx
-      .editMessageText(instructionText, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.url('📱 Android', this.downloadLinks.android),
-            Markup.button.url('🍎 iOS', this.downloadLinks.ios),
-          ],
-          [
-            Markup.button.url('💻 Windows', this.downloadLinks.windows),
-            Markup.button.url('🍏 Mac', this.downloadLinks.mac),
-          ],
-          [Markup.button.callback('⬅️ Назад', 'ON_INSTRUCTION')],
-        ]),
-      })
-      .catch(() => {});
-  };
-
-  onBtn5 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const telegramId = ctx?.from?.id;
-    const user = await this.em.findOne(UserEntity, {
-      where: { telegramId },
-    });
-    if (!user) return;
-
-    const keys = await this.em.find(UserKeyEntity, {
-      where: { userId: user.id },
-      relations: ['tariff'],
-      order: { createdAt: 'DESC' },
-      take: 10,
-    });
-
-    const visibleKeys = keys.filter(
-      (k) =>
-        !(
-          k.tariff?.id === Envs.telegram.trialTariffId && k.status === 'expired'
-        ),
-    );
-
-    let text = '<b>🔑 Мои ключи</b>\n\n';
-
-    if (!visibleKeys.length) {
-      text += 'У тебя пока нет активных ключей.';
-    } else {
-      const indexedKeys = visibleKeys.map((k, index) => ({ k, index }));
-
-      const keyRows = indexedKeys
-        .filter(({ k }) => k.tariff?.id !== Envs.telegram.trialTariffId)
-        .map(({ k, index }) => {
-          const base = k.expiresAt ? new Date(k.expiresAt) : new Date();
-          const renewedAt = new Date(base);
-          renewedAt.setDate(
-            renewedAt.getDate() + (k.tariff?.expirationDays ?? 0),
-          );
-          const dateStr = renewedAt.toLocaleDateString('ru-RU', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          });
-          return [
-            Markup.button.callback(
-              `🔄 Продлить ключ ${index + 1} (До ${dateStr})`,
-              `RENEW:${k.id}`,
-            ),
-          ];
-        });
-
-      text += indexedKeys
-        .map(({ k, index }) => {
-          const statusMap: Record<string, string> = {
-            active: 'Активен',
-            expired: 'Истёк',
-            revoked: 'Отозван',
-          };
-          const statusText = statusMap[k.status] ?? k.status;
-          const expires =
-            k.expiresAt &&
-            new Date(k.expiresAt).toLocaleDateString('ru-RU', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-            });
-          const trafficText = 'Безлимит';
-          return (
-            `${index + 1}) [${k.protocol}] <code>${k.key}</code>\n` +
-            `Статус: ${statusText}\n` +
-            (expires ? `Действует до: ${expires}\n` : '') +
-            `Трафик: ${trafficText}\n`
-          );
-        })
-        .join('\n');
-
-      await ctx
-        .editMessageText(text, {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([...keyRows, [this.backToProfileButton]]),
-        })
-        .catch((e) => console.log(e));
-      // .catch(() => {});
+    if (
+      message.left_chat_member ||
+      message.left_chat_participant ||
+      message.new_chat_member ||
+      message.new_chat_participant
+    )
       return;
-    }
 
-    await ctx
-      .editMessageText(text, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([[this.backToProfileButton]]),
-      })
-      .catch((e) => console.log(e));
-    // .catch(() => {});
-  };
+    await this.em.upsert(
+      MessageEntity,
+      {
+        id: message.message_id,
+        text: message.text,
+        userId: fromUser.id,
+        chatId: message.chat.id,
+        replyToMessageId: message.reply_to_message?.message_id,
+        createdAt: new Date(message.date),
+        editDate: message?.edit_date ? new Date(message.date) : undefined,
+      },
+      { conflictPaths: ['id'] },
+    );
 
-  onSetButtonMoney = async (ctx: Context) => {
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return;
-    ctx.answerCbQuery().catch(() => {});
-    const callbackData = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const amount = Number(callbackData.replace(/^(BUTTON_MONEY):/, ''));
-    this.amountMap.set(ctx.from!.id, amount);
-    const payload = await this.getPayloadForAddBalance(user);
-    if (!payload) return;
-    await ctx.editMessageText(payload.text, payload.extra);
-  };
-
-  onBalance = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return;
-    this.amountMap.set(ctx.from!.id, 0);
-    await ctx
-      .editMessageText('💳 <b>Введите сумму (руб.)</b>:', {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback('50 руб', `BUTTON_MONEY:50`),
-            Markup.button.callback('100 руб', `BUTTON_MONEY:100`),
-          ],
-          [
-            Markup.button.callback('300 руб', `BUTTON_MONEY:300`),
-            Markup.button.callback('500 руб', `BUTTON_MONEY:500`),
-          ],
-          [this.backToProfileButton],
-        ]),
-      })
-      .catch(() => {});
-  };
-
-  private async getUserByCtx(ctx: Context): Promise<UserEntity | null> {
-    const telegramId = ctx?.from?.id;
-    if (!telegramId) return null;
-    return this.em.findOne(UserEntity, { where: { telegramId } });
-  }
-
-  private async showTariffScreen(
-    ctx: Context,
-    tariff: TariffEntity,
-    opts: {
-      buyCallback: string;
-      promoCallback: string;
-      backCallback: string;
-    },
-  ): Promise<void> {
-    const trafficText =
-      tariff.isUnlimited || tariff.trafficGb === 0
-        ? 'Безлимит'
-        : `${tariff.trafficGb} GB`;
-    const text =
-      `📦 <b>${tariff.name}</b>\n\n` +
-      `📊 Трафик: ${trafficText}\n` +
-      `📅 Срок: ${tariff.expirationDays} дн.\n` +
-      `💰 Цена: ${tariff.price} руб.\n`;
-
-    await ctx
-      .editMessageText(text, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback('✅ Купить', opts.buyCallback),
-            Markup.button.callback('🎟 Промокод', opts.promoCallback),
-          ],
-          [Markup.button.callback('⬅️ Назад', opts.backCallback)],
-        ]),
-      })
-      .catch(() => {});
-  }
-
-  private async askPromoCode(
-    ctx: Context,
-    backCallback: string,
-  ): Promise<void> {
-    await ctx
-      .editMessageText('🎟 Введите промокод:', {
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('⬅️ Назад', backCallback)],
-        ]),
-      })
-      .catch(() => {});
-  }
-
-  onBtn8 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return;
-    const amountFromSet = this.amountMap.get(ctx.from!.id);
-    if (amountFromSet === undefined) return;
-
-    const priceCollection = await this.transactionsService.getCurrencyPrice();
-    if (!priceCollection) return;
-
-    const address = Envs.crypto.ton.walletAddress;
-    const text = user.id;
-    const value =
-      (1 / priceCollection['the-open-network'].rub) * amountFromSet * 1e9;
-    const amount = Math.ceil(value);
-
-    await ctx
-      .editMessageText(
-        `⬇️ <b>РЕКВЕЗИТЫ ДЛЯ ОПЛАТЫ</b>\n` +
-          `Для копирования достаточно нажать <b>1 раз</b>️\n\n` +
-          `Адрес кошелька: <code>${Envs.crypto.ton.walletAddress}</code>\n` +
-          `Сумма: <code>${amount / 1e9}</code> TON\n` +
-          `Принимаемые монеты: <b>TON</b>, <b>USDT</b>\n` +
-          `Комментарий: <code>${user.id}</code>`,
+    if (!message.edit_date)
+      await this.em.upsert(
+        MessageEditHistoryEntity,
         {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback('TON (выбрано)', `BTN_8`),
-              Markup.button.callback('USDT', `BTN_11`),
-            ],
-            [
-              Markup.button.url(
-                'MyTonWallet',
-                `https://my.tt/transfer/${address}?text=${text}&amount=${amount}`,
-              ),
-            ],
-            [
-              Markup.button.url(
-                'Tonkeeper',
-                `https://app.tonkeeper.com/transfer/${address}?text=${text}&amount=${amount}`,
-              ),
-            ],
-            [
-              Markup.button.url(
-                'Tonhub',
-                `https://tonhub.com/transfer/${address}?text=${text}&amount=${amount}`,
-              ),
-            ],
-            [this.backToPayWaysButton],
-          ]),
+          text: message.text,
+          messageId: message.message_id,
+          editDate: new Date(message.date),
         },
-      )
-      .catch(() => {});
-  };
-
-  onBtn11 = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return;
-    const amountFromSet = this.amountMap.get(ctx.from!.id);
-    if (amountFromSet === undefined) return;
-
-    const priceCollection = await this.transactionsService.getCurrencyPrice();
-    if (!priceCollection) return;
-
-    const address = Envs.crypto.ton.walletAddress;
-    const text = user.id;
-    const jetton = '&jetton=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
-    const value = (1 / priceCollection.usd.rub) * amountFromSet * 1e6;
-    const amount = Math.ceil(value);
-
-    await ctx
-      .editMessageText(
-        `⬇️ <b>РЕКВЕЗИТЫ ДЛЯ ОПЛАТЫ</b>\n` +
-          `Для копирования достаточно нажать <b>1 раз</b>️\n\n` +
-          `Адрес кошелька: <code>${Envs.crypto.ton.walletAddress}</code>\n` +
-          `Сумма: <code>${amount / 1e6}</code> USDT\n` +
-          `Принимаемые монеты: <b>TON</b>, <b>USDT</b>\n` +
-          `Комментарий: <code>${user.id}</code>`,
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback('TON', `BTN_8`),
-              Markup.button.callback('USDT (выбрано)', `BTN_11`),
-            ],
-            [
-              Markup.button.url(
-                'MyTonWallet',
-                `https://my.tt/transfer/${address}?text=${text}&amount=${amount}${jetton}`,
-              ),
-            ],
-            [
-              Markup.button.url(
-                'Tonkeeper',
-                `https://app.tonkeeper.com/transfer/${address}?text=${text}&amount=${amount}${jetton}`,
-              ),
-            ],
-            [
-              Markup.button.url(
-                'Tonhub',
-                `https://tonhub.com/transfer/${address}?text=${text}&amount=${amount}${jetton}`,
-              ),
-            ],
-            [this.backToPayWaysButton],
-          ]),
-        },
-      )
-      .catch(() => {});
-  };
-
-  onBtn10 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn13 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn14 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn15 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn16 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn17 = (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-  };
-
-  onBtn9 = async (ctx: Context) => {
-    const telegramId = ctx?.from?.id;
-    const user = await this.em.findOne(UserEntity, {
-      where: { telegramId },
-    });
-
-    if (!user) return;
-
-    ctx.answerCbQuery().catch(() => {});
-    const tariffs = await this.em.find(TariffEntity, {
-      where: { active: true },
-    });
-
-    if (!tariffs.length) {
-      await ctx
-        .editMessageText(
-          'Сейчас нет доступных тарифов.',
-          Markup.inlineKeyboard([[this.backToProfileButton]]),
-        )
-        .catch(() => {});
-      return;
-    }
-
-    const tariffButtons = tariffs.map((t) => [
-      Markup.button.callback(`${t.name} — ${t.price} руб.`, `T:${t.id}`),
-    ]);
-
-    await ctx
-      .editMessageText(`Баланс: ${user.balance} руб.\n<b>Выберите тариф:</b>`, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          ...tariffButtons,
-          [this.backToProfileButton],
-        ]),
-      })
-      .catch(() => {});
-  };
-
-  onTariffSelect = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const telegramId = ctx?.from?.id;
-    if (telegramId) {
-      this.waitingForPromo.delete(telegramId);
-      this.pendingPromo.delete(telegramId);
-    }
-    const callbackData = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const tariffId = callbackData.replace('T:', '');
-
-    const tariff = await this.em.findOne(TariffEntity, {
-      where: { id: tariffId, active: true },
-    });
-    if (!tariff) {
-      await ctx.answerCbQuery('Тариф не найден.').catch(() => {});
-      return;
-    }
-
-    await this.showTariffScreen(ctx, tariff, {
-      buyCallback: `BUY:${tariff.id}`,
-      promoCallback: `PROMO:${tariff.id}`,
-      backCallback: 'BTN_9',
-    });
-  };
-
-  onPromoClick = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const data = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const tariffId = data.replace('PROMO:', '');
-    const telegramId = ctx?.from?.id;
-    if (!telegramId) return;
-    this.waitingForPromo.set(telegramId, { id: tariffId, isRenew: false });
-    await this.askPromoCode(ctx, `T:${tariffId}`);
-  };
-
-  private async showKeyCreatedScreen(
-    ctx: Context,
-    uri: string,
-    backButton: any,
-  ): Promise<void> {
-    const text =
-      `✅ <b>Ключ создан</b>\n\n` +
-      `Подписка (нажми, чтобы скопировать):\n<code>${uri}</code>\n\n` +
-      `Как применить: Нажмите на ссылку (ключь) выше → откройте AmneziaVPN/(для ios DefaultVPN) → нажмите на значек "+" → Нажмите Вставить/Insert. Если приложения нет — нажмите кнопку для вашей ОС ниже.`;
-
-    await ctx
-      .editMessageText(text, {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.url('📱 Android', this.downloadLinks.android),
-            Markup.button.url('🍎 iOS', this.downloadLinks.ios),
-          ],
-          [
-            Markup.button.url('💻 Windows', this.downloadLinks.windows),
-            Markup.button.url('🍏 Mac', this.downloadLinks.mac),
-          ],
-          [Markup.button.callback('🛒 Ещё ключ', 'BTN_9'), backButton],
-        ] as unknown as Parameters<typeof Markup.inlineKeyboard>[0]),
-      })
-      .catch(() => {});
-  }
-
-  onBuyTariff = async (ctx: Context) => {
-    const callbackData = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const isRenew = callbackData.startsWith('BUY_KEY:');
-    /*
-    //  без выбора протокола — показываем выбор
-    if (!isRenew && callbackData.startsWith('BUY:')) {
-      const tariffId = callbackData.replace('BUY:', '');
-      await ctx
-        .editMessageText('Выберите протокол подключения:', {
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback('Amnezia (Xray)', `BUY_XRAY:${tariffId}`),
-              Markup.button.callback(
-                'Hiddify (Hysteria)',
-                `BUY_HYST:${tariffId}`,
-              ),
-            ],
-            [Markup.button.callback('⬅️ Назад к тарифу', `T:${tariffId}`)],
-          ]),
-        })
-        .catch(() => {});
-      return;
-    }
-    */
-    let protocol: 'xray' | 'hysteria' = 'xray';
-    let id = callbackData;
-
-    if (callbackData.startsWith('BUY_XRAY:')) {
-      protocol = 'xray';
-      id = callbackData.replace('BUY_XRAY:', '');
-    } else if (callbackData.startsWith('BUY_HYST:')) {
-      protocol = 'hysteria';
-      id = callbackData.replace('BUY_HYST:', '');
-    } else {
-      //  по умолчанию Xray
-      id = callbackData.replace(/^(BUY|BUY_KEY):/, '');
-      protocol = 'xray';
-    }
-    const telegramId = ctx?.from?.id;
-    const user = await this.getUserByCtx(ctx);
-    if (!user) {
-      await ctx.answerCbQuery('Сначала нажми /start').catch(() => {});
-      return;
-    }
-
-    await ctx.answerCbQuery('Обработка...').catch(() => {});
-
-    if (isRenew) {
-      const promo = telegramId ? this.pendingPromo.get(telegramId) : undefined;
-      const promoCode =
-        promo?.id === id && promo?.isRenew ? promo.promoCode : undefined;
-      if (telegramId && promo?.id === id && promo?.isRenew)
-        this.pendingPromo.delete(telegramId);
-
-      const result = await this.keyPurchaseService.renewKey(
-        user.id,
-        id,
-        promoCode,
+        { conflictPaths: ['messageId', 'editDate'] },
       );
-      if (!result.ok) {
-        await ctx
-          .editMessageText(`❌ ${result.error}`, {
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('💸 Пополнить баланс', 'BTN_BALANCE')],
-              [Markup.button.callback('⬅️ Назад', 'BTN_5')],
-            ]),
-          })
-          .catch(() => {});
-        return;
-      }
-
-      await ctx
-        .editMessageText(
-          `✅ <b>Ключ продлён</b>\n\nКлюч обновлён и снова активен.`,
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('🔑 Мои ключи', 'BTN_5')],
-              [this.backToProfileButton],
-            ]),
-          },
-        )
-        .catch(() => {});
-    } else {
-      const promo = telegramId ? this.pendingPromo.get(telegramId) : undefined;
-      const promoCode =
-        id === Envs.telegram.trialTariffId
-          ? 'TRIAL'
-          : promo?.id === id && !promo?.isRenew
-            ? promo.promoCode
-            : undefined;
-      if (telegramId && promo?.id === id && !promo?.isRenew)
-        this.pendingPromo.delete(telegramId);
-
-      const result = await this.keyPurchaseService.purchase(
-        user.id,
-        id,
-        promoCode,
-        protocol,
-      );
-      if (!result.ok) {
-        await ctx
-          .editMessageText(`❌ ${result.error}`, {
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('💸 Пополнить баланс', 'BTN_BALANCE')],
-              [Markup.button.callback('⬅️ Назад', 'BTN_9')],
-            ]),
-          })
-          .catch(() => {});
-        return;
-      }
-
-      await this.showKeyCreatedScreen(
-        ctx,
-        result.uri,
-        this.backToProfileButton,
-      );
-    }
   };
 
-  onRenewKey = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const data = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const keyId = data.replace('RENEW:', '');
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return;
+  onEditMessage = async (ctx: Context) => {
+    const update = ctx.update as unknown as EditedMessageType;
+    const editedMessage = update.edited_message;
 
-    const vpnKey = await this.em.findOne(UserKeyEntity, {
-      where: { id: keyId, userId: user.id },
-      relations: ['tariff'],
-    });
-    if (!vpnKey || !vpnKey.tariffId || !vpnKey.tariff) {
-      await ctx.answerCbQuery('Ключ или тариф не найден').catch(() => {});
-      return;
-    }
+    const context = { message: editedMessage } as unknown as Context;
+    await this.onMessage(context);
 
-    await this.showTariffScreen(ctx, vpnKey.tariff, {
-      buyCallback: `BUY_KEY:${keyId}`,
-      promoCallback: `PROMO_KEY:${keyId}`,
-      backCallback: 'BTN_5',
-    });
-  };
-
-  onRenewPromo = async (ctx: Context) => {
-    ctx.answerCbQuery().catch(() => {});
-    const data = (ctx.callbackQuery as { data?: string })?.data ?? '';
-    const keyId = data.replace('PROMO_KEY:', '');
-    const telegramId = ctx?.from?.id;
-    if (!telegramId) return;
-    this.waitingForPromo.set(telegramId, { id: keyId, isRenew: true });
-    await this.askPromoCode(ctx, `RENEW:${keyId}`);
-  };
-
-  private async handlePromoCode(
-    ctx: Context,
-    telegramId: number,
-    promoText: string,
-    isRenew: boolean,
-    id: string,
-  ): Promise<boolean> {
-    const user = await this.getUserByCtx(ctx);
-    if (!user) return false;
-
-    let tariffId: string;
-    if (isRenew) {
-      const vpnKey = await this.em.findOne(UserKeyEntity, {
-        where: { id, userId: user.id },
-        relations: ['tariff'],
-      });
-      if (!vpnKey || !vpnKey.tariffId || !vpnKey.tariff) {
-        await ctx.reply('❌ Ключ не найден').catch(() => {});
-        return false;
-      }
-      tariffId = vpnKey.tariff.id;
-    } else {
-      tariffId = id;
-    }
-
-    const priceResult = await this.keyPurchaseService.getPriceWithPromo(
-      user.id,
-      tariffId,
-      promoText,
-    );
-    if (!priceResult.ok) {
-      const backCallback = isRenew ? `RENEW:${id}` : `T:${tariffId}`;
-      await ctx
-        .reply(`❌ ${priceResult.error}`, {
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('⬅️ Назад', backCallback)],
-          ]),
-        })
-        .catch(() => {});
-      return false;
-    }
-
-    if (isRenew) {
-      this.pendingPromo.set(telegramId, {
-        id,
-        promoCode: promoText,
-        isRenew: true,
-      });
-      await ctx
-        .reply(
-          `✅ Промокод применён. Цена: <b>${priceResult.finalPrice} руб.</b> Нажмите Купить:`,
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('✅ Купить', `BUY_KEY:${id}`)],
-              [Markup.button.callback('⬅️ К ключам', 'BTN_5')],
-            ]),
-          },
-        )
-        .catch(() => {});
-    } else {
-      this.pendingPromo.set(telegramId, {
-        id: tariffId,
-        promoCode: promoText,
-        isRenew: false,
-      });
-      await ctx
-        .reply(
-          `✅ Промокод применён. Цена: <b>${priceResult.finalPrice} руб.</b> Нажмите Купить:`,
-          {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([
-              [Markup.button.callback('✅ Купить', `BUY:${tariffId}`)],
-              [this.backToTariffsButton],
-            ]),
-          },
-        )
-        .catch(() => {});
-    }
-    return true;
-  }
-
-  onAddBalance = async (ctx: Context) => {
-    const telegramId = ctx?.from?.id;
-    if (!telegramId) return;
-    const user = await this.getUserByCtx(ctx);
-    if (!user) {
-      this.amountMap.delete(telegramId);
-      return;
-    }
-
-    const payload = await this.getPayloadForAddBalance(user);
-    if (!payload) return;
-    await ctx.editMessageText(payload.text, payload.extra);
-  };
-
-  onText = async (ctx: Context) => {
-    const telegramId = ctx?.from?.id;
-    if (!telegramId) return;
-    const text = (ctx.message as { text?: string })?.text?.trim() ?? '';
-
-    const waitingPromo = this.waitingForPromo.get(telegramId);
-    if (waitingPromo) {
-      this.waitingForPromo.delete(telegramId);
-      await this.handlePromoCode(
-        ctx,
-        telegramId,
-        text,
-        waitingPromo.isRenew,
-        waitingPromo.id,
-      );
-      return;
-    }
-
-    if (!this.amountMap.has(telegramId)) return;
-    const user = await this.getUserByCtx(ctx);
-    if (!user) {
-      this.amountMap.delete(telegramId);
-      return;
-    }
-    const amount = parseFloat(text);
-    if (isNaN(amount) || amount <= 0) {
-      await ctx.reply('❌ Введите число, например 100').catch(() => {});
-      return;
-    }
-    this.amountMap.set(telegramId, amount);
-
-    const payload = await this.getPayloadForAddBalance(user);
-    if (!payload) return;
-    await ctx.reply(payload.text, payload.extra);
-  };
-
-  public async sendMessageAddBalance(userId: string, balance: number) {
-    const user = await this.em.findOne(UserEntity, { where: { id: userId } });
-    if (!user?.chatId) return;
-
-    await this.bot.telegram.sendMessage(
-      user.chatId,
-      `Пополнен баланс на сумму <b>${Math.ceil(balance)} руб.</b>`,
-      { parse_mode: 'HTML' },
-    );
-    await this.bot.telegram.sendMessage(
-      user.chatId,
-      'Выбери действие:',
-      this.initMenu,
-    );
-  }
-
-  public async send8MarchMessage(user: UserEntity) {
-    if (!user.chatId) return;
-    const filePath = path.join(
-      __dirname,
-      '../',
-      '../',
-      'public',
-      'media',
-      '8march.jpeg',
-    );
-
-    await this.bot.telegram.sendPhoto(
-      user.chatId,
-      Input.fromLocalFile(filePath),
+    await this.em.upsert(
+      MessageEditHistoryEntity,
       {
-        caption:
-          '<b>🌹Поздравляем всех прекрасных девушек с Международным женским днём!</b>\n\n' +
-          'Пусть этот день будет наполнен улыбками, теплом, вдохновением и приятными сюрпризами. Вы делаете мир ярче, добрее и красивее 💐\n\n' +
-          'В честь этого дня мы запускаем праздничные промокод — <b>месяц беслпатного пользования VPN</b>\n\n' +
-          'Это отличный повод подключиться сейчас или продлить подписку на выгодных условиях!\n\n' +
-          '🎁 Промокод: <b>MARCH8</b>\n\n' +
-          'Как использовать:\n' +
-          '1. Откройте бота\n' +
-          '2. Нажмите «🌐️ Меню»\n' +
-          '3. Нажмите «🛒 Приобрести ключ»\n' +
-          '4. Нажмите «30 дней - 59 руб»\n' +
-          '5. Нажмите «🎟 Промокод»\n' +
-          '6. Отправьте сообщение «MARCH8»\n' +
-          '6. Нажмите «✅ Купить»\n\n' +
-          'С праздником весны! 🌷\n' +
-          'Пусть интернет будет свободным, а настроение — отличным! 💐',
-        parse_mode: 'HTML',
+        text: editedMessage.text,
+        messageId: editedMessage.message_id,
+        editDate: new Date(editedMessage.edit_date!),
       },
+      { conflictPaths: ['messageId', 'editDate'] },
     );
-    await this.bot.telegram.sendMessage(user.chatId, '<b>MARCH8</b>', {
-      parse_mode: 'HTML',
-    });
-    await this.bot.telegram.sendMessage(user.chatId, 'Выберите действие:', {
-      ...this.initMenu,
-    });
-  }
+  };
 
-  public async sendRequestToBuyKey(user: UserEntity) {
-    if (!user.chatId) return;
+  onJoinChat = async (ctx: Context) => {
+    const chatMember = ctx.update as unknown as UpdateMyChatMemberType;
+    const chat = chatMember.my_chat_member.chat;
+    const title = chat.type === 'private' ? chat.username : chat.title;
 
-    const filePath = path.join(
-      __dirname,
-      '../',
-      '../',
-      'public',
-      'media',
-      'welcome.mp4',
+    await this.em.upsert(
+      ChatEntity,
+      { id: chat.id, title, type: chat.type },
+      { conflictPaths: ['id'] },
+    );
+    const chatDb = (await this.em.findOne(ChatEntity, {
+      where: { id: chat.id },
+      relations: ['users'],
+    }))!;
+
+    if (!chatDb.users.find((user) => user.id === this.botInfo.id)) {
+      chatDb.users.push(this.botInfo);
+      await this.em.save(chatDb);
+    }
+  };
+
+  public onStart = async (ctx: Context) => {
+    const from = ctx?.from;
+    const chat = ctx?.chat;
+
+    await this.em.upsert(
+      UserEntity,
+      { id: from?.id, userName: from?.username },
+      { conflictPaths: ['id'] },
     );
 
-    const videoMessage = await this.bot.telegram.sendVideo(
-      user.chatId,
-      this.welcomeVideoId ?? Input.fromLocalFile(filePath),
-      {
-        disable_notification: true,
-      },
+    await this.em.upsert(
+      ChatEntity,
+      { id: chat?.id, type: 'private', title: from?.username },
+      { conflictPaths: ['id'] },
     );
-    if (!this.welcomeVideoId) {
-      console.log(`Set welcomeVideoId = '${videoMessage.video.file_id}'`);
-      this.welcomeVideoId = videoMessage.video.file_id;
+
+    const chatDb = (await this.em.findOne(ChatEntity, {
+      where: { id: chat?.id },
+      relations: ['users'],
+    }))!;
+
+    if (!chatDb.users.find((user) => user.id === from?.id)) {
+      const user = (await this.em.findOne(UserEntity, {
+        where: { id: from?.id },
+      }))!;
+      chatDb.users.push(user);
+      await this.em.save(chatDb);
     }
 
-    await this.bot.telegram.sendMessage(
-      user.chatId,
-      '<b>Давайте подключим первое устройство</b>\n\n' +
-        'Это займет всего пару минут и откроет доступ к VPN.\n\n' +
-        '<b>Появились трудности с подключением?</b>\nПри любых вопросах вы можете обратиться в поддержку',
-      {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('⬅️ К тарифам', 'BTN_9')],
-          [Markup.button.callback('📖 Инструкция', 'ON_INSTRUCTION')],
-          [Markup.button.url('👩‍💻 Поддержка', 'https://t.me/passimx')],
-        ]),
-      },
-    );
-  }
+    if (!chatDb.users.find((user) => user.id === this.botInfo.id)) {
+      chatDb.users.push(this.botInfo);
+      await this.em.save(chatDb);
+    }
 
-  public async sendAlmostExpiredKey(user: UserEntity) {
-    if (!user.chatId) return;
+    chatDb.users.push(this.botInfo);
 
-    await this.bot.telegram.sendMessage(
-      user.chatId,
-      `Срок действия ключа подходит к концу.\nБаланс: ${user.balance}`,
-      Markup.inlineKeyboard([
-        ...user.keys
-          .filter((key) => key.tariff?.id !== Envs.telegram.trialTariffId)
-          .map((key, index) => [
-            Markup.button.callback(
-              `🔄 Продлить ключ ${index + 1}`,
-              `RENEW:${key.id}`,
-            ),
-          ]),
-        [this.backToProfileButton],
-      ]),
-    );
-  }
+    const textMessage = await ctx.reply(words['start'], { parse_mode: 'HTML' });
 
-  public async replyUsersWithoutKeys() {
-    const users = await this.em
-      .createQueryBuilder(UserEntity, 'users')
-      .leftJoin('users.keys', 'keys')
-      .groupBy('users.id')
-      .having('COUNT(keys.id) = 0')
-      .getMany();
-
-    await Promise.all(
-      users.map(async (user) => this.sendRequestToBuyKey(user)),
-    );
-  }
-
-  public async send8March() {
-    const users = await this.em
-      .createQueryBuilder(UserEntity, 'users')
-      .leftJoin('users.keys', 'keys')
-      .groupBy('users.id')
-      .having('COUNT(keys.id) = 0')
-      .getMany();
-
-    await Promise.all(users.map(async (user) => this.send8MarchMessage(user)));
-  }
-
-  private getPayloadForAddBalance = async (user: UserEntity) => {
-    const amount = this.amountMap.get(user.telegramId!);
-    if (!amount) return;
-    const result = await this.yookassaBalanceService.createBalancePaymentLink(
-      user.id,
-      amount,
-    );
-    const text: string =
-      `Сумма пополнения: ${amount} руб.\n` + 'Выбери способ пополнения:';
-    const extra = Markup.inlineKeyboard([
-      result.ok
-        ? [
-            Markup.button.callback(
-              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-              'BTN_8',
-            ),
-            Markup.button.url('💳 YooKassa', result.paymentUrl),
-          ]
-        : [
-            Markup.button.callback(
-              `💎 ТОН (+${Envs.crypto.allowance * 100}%)`,
-              'BTN_8',
-            ),
-          ],
-      [this.backToSetAmountButton],
-    ]);
-
-    return { text, extra };
+    await this.em.insert(MessageEntity, {
+      id: textMessage.message_id,
+      text: textMessage.text,
+      userId: from?.id,
+      chatId: textMessage.chat.id,
+      createdAt: new Date(textMessage.date),
+    });
   };
+
+  private async getMe() {
+    const userInfo = await this.bot.telegram.getMe();
+
+    await this.em.upsert(
+      UserEntity,
+      {
+        id: userInfo.id,
+        userName: userInfo.username,
+      },
+      { conflictPaths: ['id'] },
+    );
+
+    this.botInfo = (await this.em.findOne(UserEntity, {
+      where: { id: userInfo.id },
+    }))!;
+  }
 }

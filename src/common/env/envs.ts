@@ -13,34 +13,5 @@ export const Envs = {
   },
   telegram: {
     botToken: String(process.env.TELEGRAM_BOT_TOKEN),
-    trialTariffId: process.env.TRIAL_TARIFF_ID ?? '',
-    addKeyVideoId: process.env.TELEGRAM_ADD_KEY_VIDEO_ID,
-    addBalanceVideoId: process.env.TELEGRAM_ADD_BALANCE_VIDEO_ID,
-    welcomeVideoId: process.env.TELEGRAM_WELCOME_VIDEO_ID,
-  },
-  crypto: {
-    ethereum: {
-      walletAddress: '0x6651D1aF77B4997EDA6A9233613e1CAcC7E657BF',
-      jettonWalletAddress: '0x6651D1aF77B4997EDA6A9233613e1CAcC7E657BF',
-    },
-    tron: {},
-    solana: {},
-    bsc: {},
-    bitcoin: {},
-    ton: {
-      walletAddress: String(process.env.TON_WALLET_ADDRESS),
-      jettonWalletAddress: String(process.env.TON_JETTON_WALLET_ADDRESS),
-      endpointUrl: String(process.env.TON_ENDPOINT_URL),
-      endpointApiKey: String(process.env.TON_ENDPOINT_TON_APIKEY),
-    },
-    allowance: 0.5,
-  },
-  blitz: {
-    apiUrl: String(process.env.BLITZ_API_URL),
-    apiKey: String(process.env.BLITZ_API_KEY),
-  },
-  yookassa: {
-    walletNumber: String(process.env.YOOKASSA_WALLET_NUMBER),
-    accessToken: process.env.YOOKASSA_ACCESS_TOKEN,
   },
 };
