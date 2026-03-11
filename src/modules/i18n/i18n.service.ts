@@ -6,7 +6,7 @@ export type Dictionary = Record<string, string>;
 
 @Injectable()
 export class I18nService {
-  private langs: Record<string, Dictionary> = {
+  public readonly langs: Record<string, Dictionary> = {
     ru,
     en,
   };

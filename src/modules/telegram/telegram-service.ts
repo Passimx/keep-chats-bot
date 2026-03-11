@@ -32,6 +32,19 @@ export class TelegramService {
     this.bot.on('my_chat_member', this.onJoinChat);
     this.bot.on('message', this.onMessage);
     this.bot.on('edited_message', this.onEditMessage);
+
+    for (const lang of Object.keys(this.i18nService.langs)) {
+      await this.bot.telegram.setMyDescription(
+        this.i18nService.t(lang, 'description'),
+        lang,
+      );
+
+      await this.bot.telegram.setMyShortDescription(
+        this.i18nService.t(lang, 'short_description'),
+        lang,
+      );
+    }
+
     await this.getMe();
     void this.bot.launch();
   }
