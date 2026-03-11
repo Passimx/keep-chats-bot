@@ -9,7 +9,7 @@ export type PrivateChatType = {
 export type GroupChatType = {
   id: number;
   title: string;
-  type: 'group' | 'supergroup';
+  type: 'group' | 'supergroup' | 'channel';
 };
 
 export type ChatType = PrivateChatType | GroupChatType;

@@ -1,0 +1,8 @@
+export const WordList = {
+  ru: {
+    start: 'Добро пожаловать в <b>Keep Chats Bot</b>',
+  },
+  en: {
+    start: 'Welcome to the <b>Keep Chats Bot</b>',
+  },
+};

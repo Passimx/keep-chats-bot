@@ -17,7 +17,7 @@ export class ChatEntity {
   readonly title: string;
 
   @Column({ name: 'type', type: 'varchar', length: 2 ** 4 })
-  readonly type: 'group' | 'private' | 'supergroup';
+  readonly type: 'group' | 'private' | 'supergroup' | 'channel';
 
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;

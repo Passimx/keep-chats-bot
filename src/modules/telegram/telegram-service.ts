@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { Context, Telegraf } from 'telegraf';
-import words from '../../common/words.json';
 
 import { EntityManager } from 'typeorm';
 import { Envs } from '../../common/env/envs';
@@ -10,13 +9,18 @@ import { MessageType } from './types/message.type';
 import { EditedMessageType } from './types/edited-message.type';
 import { UpdateMyChatMemberType } from './types/update-my-chat-member.type';
 import { MessageEntity } from '../database/entities/message.entity';
+import { FromType } from './types/from.type';
+import { I18nService } from '../i18n/i18n.service';
 
 @Injectable()
 export class TelegramService {
   private bot: Telegraf;
   private botInfo: UserEntity;
 
-  constructor(private readonly em: EntityManager) {}
+  constructor(
+    private readonly em: EntityManager,
+    private readonly i18nService: I18nService,
+  ) {}
 
   async onModuleInit() {
     this.bot = new Telegraf(Envs.telegram.botToken);
@@ -123,7 +127,7 @@ export class TelegramService {
   };
 
   public onStart = async (ctx: Context) => {
-    const from = ctx?.from;
+    const from = ctx?.from as FromType;
     const chat = ctx?.chat;
 
     await this.em.upsert(
@@ -156,7 +160,10 @@ export class TelegramService {
       await this.em.save(chatDb);
     }
 
-    const textMessage = await ctx.reply(words['start'], { parse_mode: 'HTML' });
+    const textMessage = await ctx.reply(
+      this.i18nService.t(from.language_code, 'start'),
+      { parse_mode: 'HTML' },
+    );
 
     await this.em.insert(MessageEntity, {
       messageId: textMessage.message_id,
