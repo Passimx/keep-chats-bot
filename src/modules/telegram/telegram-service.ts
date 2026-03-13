@@ -35,18 +35,25 @@ export class TelegramService {
 
     for (const lang of Object.keys(this.i18nService.langs)) {
       await this.bot.telegram.setMyDescription(
-        this.i18nService.t(lang, 'description'),
+        this.t(lang, 'description'),
         lang,
       );
 
       await this.bot.telegram.setMyShortDescription(
-        this.i18nService.t(lang, 'short_description'),
+        this.t(lang, 'short_description'),
         lang,
       );
     }
 
     await this.getMe();
     void this.bot.launch();
+  }
+
+  private t(ctx: Context | string | undefined, key: string) {
+    return this.i18nService.t(
+      typeof ctx === 'string' ? ctx : ctx?.from?.language_code,
+      key,
+    );
   }
 
   onModuleDestroy() {
@@ -64,7 +71,11 @@ export class TelegramService {
 
     await this.em.upsert(
       UserEntity,
-      { id: from.id, userName: from.username },
+      {
+        id: from.id,
+        userName: from.username,
+        languageCode: from.language_code,
+      },
       { conflictPaths: ['id'] },
     );
 
@@ -145,7 +156,11 @@ export class TelegramService {
 
     await this.em.upsert(
       UserEntity,
-      { id: from?.id, userName: from?.username },
+      {
+        id: from?.id,
+        userName: from?.username,
+        languageCode: from?.language_code,
+      },
       { conflictPaths: ['id'] },
     );
 
@@ -173,10 +188,9 @@ export class TelegramService {
       await this.em.save(chatDb);
     }
 
-    const textMessage = await ctx.reply(
-      this.i18nService.t(from.language_code, 'start'),
-      { parse_mode: 'HTML' },
-    );
+    const textMessage = await ctx.reply(this.t(from.language_code, 'start'), {
+      parse_mode: 'HTML',
+    });
 
     await this.em.insert(MessageEntity, {
       messageId: textMessage.message_id,
@@ -195,6 +209,7 @@ export class TelegramService {
       {
         id: userInfo.id,
         userName: userInfo.username,
+        languageCode: userInfo.language_code,
       },
       { conflictPaths: ['id'] },
     );

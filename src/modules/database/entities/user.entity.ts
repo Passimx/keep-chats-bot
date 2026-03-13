@@ -27,6 +27,15 @@ export class UserEntity {
   })
   readonly userName?: string;
 
+  @Column({
+    name: 'language_code',
+    type: 'varchar',
+    length: 2 ** 4,
+    default: 'ru',
+    nullable: true,
+  })
+  readonly languageCode?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;
 
