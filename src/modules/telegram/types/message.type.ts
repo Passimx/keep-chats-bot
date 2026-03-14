@@ -24,4 +24,6 @@ export type MessageType = {
   video_note?: VideoNoteType;
   photo?: [ThumbType, ThumbType, ThumbType, ThumbType];
   video?: VideoType;
+  reply_markup?: never[];
+  data?: string;
 };
