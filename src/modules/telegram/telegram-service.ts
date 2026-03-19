@@ -5,9 +5,10 @@ import { EntityManager } from 'typeorm';
 import { Envs } from '../../common/env/envs';
 import { UserEntity } from '../database/entities/user.entity';
 import { I18nService } from '../i18n/i18n.service';
-import { ActionsService } from './actions.service';
-import { BotActionsEnum } from './types/bot-actions.enum';
+import { Archiver } from '../sdk';
 import { ActionsArrayType } from './types/actions-array.type';
+import { BotActionsEnum } from './types/bot-actions.enum';
+import { CommandsService } from './commands.service';
 
 @Injectable()
 export class TelegramService {
@@ -17,7 +18,7 @@ export class TelegramService {
   constructor(
     private readonly em: EntityManager,
     private readonly i18nService: I18nService,
-    private readonly actionsService: ActionsService,
+    private readonly commandsService: CommandsService,
   ) {}
 
   async onModuleInit() {
@@ -25,16 +26,23 @@ export class TelegramService {
     this.bot.catch((err) => {
       console.error('Telegraf error:', err);
     });
+
+    const archiver = new Archiver({
+      apiKey: 'bot_live_23942394',
+      endpoint: 'http://localhost:2000/telegram/events',
+    });
+    archiver.listen(this.bot);
+
     await this.getMe();
 
     const commandArray: ActionsArrayType = [
-      [BotActionsEnum.START, this.actionsService.onStart],
-      [BotActionsEnum.EXPORT, this.actionsService.onExport],
+      [BotActionsEnum.START, this.commandsService.onStart],
+      // [BotActionsEnum.EXPORT, this.commandsService.onExport],
     ];
 
     const actionArray: ActionsArrayType = [
-      [BotActionsEnum.MENU, this.actionsService.onMenu],
-      [BotActionsEnum.BACK_TO_MENU, this.actionsService.backToMenu],
+      [BotActionsEnum.MENU, this.commandsService.onMenu],
+      [BotActionsEnum.BACK_TO_MENU, this.commandsService.backToMenu],
     ];
 
     actionArray.forEach(([filters, action]) =>
@@ -44,11 +52,6 @@ export class TelegramService {
     commandArray.forEach(([filters, action]) =>
       this.bot.command(filters, action),
     );
-
-    this.bot.on('message', this.actionsService.onMessage);
-    this.bot.on('my_chat_member', this.actionsService.onJoinChat);
-    this.bot.on('edited_message', this.actionsService.onEditMessage);
-    this.bot.on('callback_query', this.actionsService.onCallbackQuery);
 
     if (!this.botInfo.userName?.includes('test'))
       for (const lang of Object.keys(this.i18nService.langs)) {
@@ -63,7 +66,11 @@ export class TelegramService {
         );
       }
 
-    await this.bot.launch();
+    void this.bot.launch();
+  }
+
+  onModuleDestroy() {
+    this.bot.stop();
   }
 
   private t(ctx: Context | string | undefined, key: string) {
@@ -73,10 +80,6 @@ export class TelegramService {
     );
   }
 
-  onModuleDestroy() {
-    this.bot.stop();
-  }
-
   private async getMe() {
     const userInfo = await this.bot.telegram.getMe();
 
@@ -84,6 +87,8 @@ export class TelegramService {
       UserEntity,
       {
         id: userInfo.id,
+        isBot: userInfo.is_bot,
+        firstName: userInfo.first_name,
         userName: userInfo.username,
         languageCode: userInfo.language_code,
       },
@@ -93,7 +98,5 @@ export class TelegramService {
     this.botInfo = (await this.em.findOne(UserEntity, {
       where: { id: userInfo.id },
     }))!;
-
-    this.actionsService.setBotInfo(this.botInfo);
   }
 }

@@ -20,21 +20,25 @@ export class UserEntity {
   })
   readonly id: number;
 
-  @Column({
-    name: 'user_name',
-    type: 'varchar',
-    nullable: true,
-  })
-  readonly userName?: string;
+  @Column({ name: 'is_bot', type: 'boolean', default: false })
+  readonly isBot: boolean;
+
+  @Column({ name: 'first_name', type: 'varchar', length: 2 ** 6 })
+  readonly firstName: string;
+
+  @Column({ name: 'user_name', type: 'varchar' })
+  readonly userName: string;
 
   @Column({
     name: 'language_code',
     type: 'varchar',
     length: 2 ** 4,
-    default: 'ru',
     nullable: true,
   })
   readonly languageCode?: string;
+
+  @Column({ name: 'token', type: 'varchar', length: 2 ** 6, nullable: true })
+  readonly token?: string;
 
   @CreateDateColumn({ name: 'created_at' })
   readonly createdAt: Date;

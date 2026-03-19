@@ -1,9 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './modules/app.module';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter(),
+    { bufferLogs: true },
+  );
   // Это нужно для зашиты и жеской проверки запроса
   app.useGlobalPipes(
     new ValidationPipe({

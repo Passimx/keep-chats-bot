@@ -1,0 +1,15 @@
+import { Body, Controller, Post } from '@nestjs/common';
+import { ActionsService } from './actions.service';
+import { UpdateType } from './types/update.type';
+import { UserEntity } from '../database/entities/user.entity';
+import { User } from '../../common/guards/actions/user.decorator';
+
+@Controller('telegram')
+export class ActionsController {
+  constructor(private actionsService: ActionsService) {}
+
+  @Post('events')
+  async events(@Body() body: UpdateType, @User() bot: UserEntity) {
+    await this.actionsService.saveAction(bot, body);
+  }
+}

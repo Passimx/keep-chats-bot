@@ -6,7 +6,7 @@ import { VideoNoteType } from './video-note.type';
 import { ThumbType } from './thumb.type';
 import { VideoType } from './video.type';
 
-export type MessageType = {
+export class MessageType {
   message_id: number;
   from: FromType;
   chat: ChatType;
@@ -26,4 +26,4 @@ export type MessageType = {
   video?: VideoType;
   reply_markup?: never[];
   data?: string;
-};
+}
