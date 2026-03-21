@@ -20,7 +20,7 @@ async function bootstrap() {
       transform: true, // жесткая типизация
     }),
   );
-  await app.listen(process.env.PORT ?? 2000);
+  await app.listen(process.env.PORT ?? 2000, '0.0.0.0');
 }
 
 void bootstrap();
