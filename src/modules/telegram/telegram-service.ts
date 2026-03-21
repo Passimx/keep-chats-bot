@@ -1,17 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Context, Telegraf } from 'telegraf';
 
 import { EntityManager } from 'typeorm';
 import { Envs } from '../../common/env/envs';
 import { UserEntity } from '../database/entities/user.entity';
 import { I18nService } from '../i18n/i18n.service';
-import { Archiver } from '../sdk';
 import { ActionsArrayType } from './types/actions-array.type';
 import { BotActionsEnum } from './types/bot-actions.enum';
 import { CommandsService } from './commands.service';
+import { Archiver } from '@passimx/archiver';
 
 @Injectable()
-export class TelegramService {
+export class TelegramService implements OnModuleInit {
   private bot: Telegraf;
   private botInfo: UserEntity;
 
@@ -28,8 +28,8 @@ export class TelegramService {
     });
 
     const archiver = new Archiver({
-      apiKey: 'bot_live_23942394',
-      endpoint: 'http://localhost:2000/telegram/events',
+      apiKey: Envs.archiver.apiKey,
+      endpoint: Envs.archiver.endpoint,
     });
     archiver.listen(this.bot);
 
@@ -37,12 +37,13 @@ export class TelegramService {
 
     const commandArray: ActionsArrayType = [
       [BotActionsEnum.START, this.commandsService.onStart],
-      // [BotActionsEnum.EXPORT, this.commandsService.onExport],
+      [BotActionsEnum.EXPORT, this.commandsService.onExport],
     ];
 
     const actionArray: ActionsArrayType = [
       [BotActionsEnum.MENU, this.commandsService.onMenu],
       [BotActionsEnum.BACK_TO_MENU, this.commandsService.backToMenu],
+      [BotActionsEnum.EXPORT, this.commandsService.onExport],
     ];
 
     actionArray.forEach(([filters, action]) =>

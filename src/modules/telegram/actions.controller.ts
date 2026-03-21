@@ -1,4 +1,11 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+} from '@nestjs/common';
 import { ActionsService } from './actions.service';
 import { UpdateType } from './types/update.type';
 import { UserEntity } from '../database/entities/user.entity';
@@ -9,7 +16,12 @@ export class ActionsController {
   constructor(private actionsService: ActionsService) {}
 
   @Post('events')
-  async events(@Body() body: UpdateType, @User() bot: UserEntity) {
-    await this.actionsService.saveAction(bot, body);
+  events(@Body() body: UpdateType, @User() bot: UserEntity) {
+    return this.actionsService.saveAction(bot, body);
+  }
+
+  @Get('chats/:id/export')
+  exportChat(@Param('id', ParseIntPipe) id: number, @User() bot: UserEntity) {
+    return this.actionsService.exportChat(bot, { id });
   }
 }

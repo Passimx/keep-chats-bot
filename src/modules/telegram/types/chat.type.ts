@@ -1,15 +1,17 @@
+import { ChatTypeEnum } from './chat-type.enum';
+
 export type PrivateChatType = {
   id: number;
   first_name: string;
   last_name: string;
   username: string;
-  type: 'private';
+  type: ChatTypeEnum.PRIVATE;
 };
 
 export type GroupChatType = {
   id: number;
   title: string;
-  type: 'group' | 'supergroup' | 'channel';
+  type: ChatTypeEnum.GROUP | ChatTypeEnum.SUPERGROUP | ChatTypeEnum.CHANNEL;
 };
 
 export type ChatType = PrivateChatType | GroupChatType;

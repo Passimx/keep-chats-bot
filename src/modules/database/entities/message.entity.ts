@@ -19,10 +19,10 @@ export class MessageEntity {
   @Column({ name: 'message_id', type: 'varchar', length: 2 ** 4 })
   readonly messageId: number;
 
-  @Column({ name: 'user_id', type: 'bigint' })
+  @Column({ name: 'user_id', type: 'bigint', select: false })
   readonly userId: number;
 
-  @Column({ name: 'chat_id', type: 'varchar', length: 2 ** 4 })
+  @Column({ name: 'chat_id', type: 'varchar', length: 2 ** 4, select: false })
   readonly chatId: number;
 
   @Column({ name: 'created_at', type: 'timestamptz' })

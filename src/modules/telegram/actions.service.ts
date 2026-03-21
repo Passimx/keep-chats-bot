@@ -9,6 +9,7 @@ import { CallbackQueryType } from './types/callback-query.type';
 import { FromType } from './types/from.type';
 import { ChatType } from './types/chat.type';
 import { MyChatMember } from './types/my-chat-member.type';
+import { ChatTypeEnum } from './types/chat-type.enum';
 
 @Injectable()
 export class ActionsService {
@@ -21,6 +22,18 @@ export class ActionsService {
     if (body.message) await this.onMessage(body.message, bot);
     if (body.my_chat_member) await this.onJoinChat(body.my_chat_member, bot);
   };
+
+  public async exportChat(bot: UserEntity, findOptions: Partial<ChatEntity>) {
+    return this.em.findOne(ChatEntity, {
+      where: {
+        id: findOptions?.id,
+        type: findOptions?.type,
+        users: [{ id: bot.id }],
+      },
+      relations: ['messages', 'messages.user'],
+      order: { messages: { createdAt: 'ASC', messageId: 'ASC' } },
+    });
+  }
 
   private onCallbackQuery = async (
     callback_query: CallbackQueryType,
@@ -95,7 +108,7 @@ export class ActionsService {
       ChatEntity,
       {
         id: chat.id,
-        title: chat.type === 'private' ? chat.username : chat.title,
+        title: chat.type === ChatTypeEnum.PRIVATE ? chat.username : chat.title,
         type: chat.type,
       },
       { conflictPaths: ['id'] },

@@ -26,6 +26,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-fastify": "^11.1.17",
     "@nestjs/typeorm": "^11.0.0",
+    "@passimx/archiver": "^1.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "pg": "^8.18.0",

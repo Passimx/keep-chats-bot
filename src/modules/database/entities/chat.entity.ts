@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { UserEntity } from './user.entity';
 import { MessageEntity } from './message.entity';
+import { ChatTypeEnum } from '../../telegram/types/chat-type.enum';
 
 @Entity({ name: 'chats' })
 export class ChatEntity {
@@ -17,9 +18,9 @@ export class ChatEntity {
   readonly title: string;
 
   @Column({ name: 'type', type: 'varchar', length: 2 ** 4 })
-  readonly type: 'group' | 'private' | 'supergroup' | 'channel';
+  readonly type: ChatTypeEnum;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', select: false })
   readonly createdAt: Date;
 
   @ManyToMany(() => UserEntity, (user) => user.chats)
