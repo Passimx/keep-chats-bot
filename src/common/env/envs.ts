@@ -13,10 +13,7 @@ export const Envs = {
   },
   telegram: {
     botToken: String(process.env.TELEGRAM_BOT_TOKEN),
-  },
-
-  archiver: {
-    apiKey: String(process.env.ARCHIVER_APIKEY),
-    endpoint: String(process.env.ARCHIVER_ENDPOINT),
+    archiverApiKey: String(process.env.TELEGRAM_ARCHIVER_APIKEY),
+    archiverEndpoint: String(process.env.TELEGRAM_ARCHIVER_ENDPOINT),
   },
 };

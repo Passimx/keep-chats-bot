@@ -13,8 +13,8 @@ export class CommandsService implements OnModuleInit {
 
   onModuleInit() {
     this.archiver = new Archiver({
-      apiKey: Envs.archiver.apiKey,
-      endpoint: Envs.archiver.endpoint,
+      apiKey: Envs.telegram.archiverApiKey,
+      endpoint: Envs.telegram.archiverEndpoint,
     });
   }
 

@@ -28,8 +28,8 @@ export class TelegramService implements OnModuleInit {
     });
 
     const archiver = new Archiver({
-      apiKey: Envs.archiver.apiKey,
-      endpoint: Envs.archiver.endpoint,
+      apiKey: Envs.telegram.archiverApiKey,
+      endpoint: Envs.telegram.archiverEndpoint,
     });
     archiver.listen(this.bot);
 
