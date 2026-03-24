@@ -48,7 +48,7 @@ export class ActionsService {
         messageId: message_id,
         chatId: chat.id,
         userId: from.id,
-        createdAt: new Date(date),
+        createdAt: new Date(date * 1000),
       },
     });
     messageDb.info.push({ data: callback_query.data, from });
@@ -65,7 +65,7 @@ export class ActionsService {
         messageId: message_id,
         chatId: chat.id,
         userId: from.id,
-        createdAt: new Date(date),
+        createdAt: new Date(date * 1000),
       },
     });
     messageDb.info.push(info);
@@ -87,7 +87,7 @@ export class ActionsService {
         messageId: message_id,
         userId: from.id,
         chatId: message.chat.id,
-        createdAt: new Date(date),
+        createdAt: new Date(date * 1000),
         info: [info],
       },
       { conflictPaths: ['chatId', 'messageId'] },
