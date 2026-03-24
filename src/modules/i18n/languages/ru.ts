@@ -14,4 +14,14 @@ export default {
   back: 'Назад',
   select_action: 'Выберите действие',
   export_chat: 'Экспорт чата',
+  verify_success:
+    '<b>✅ Bot успешно подключён</b>\n' +
+    'Ваш бот был успешно привязан к сервису.\n\n' +
+    '<b>🔑 Ваш API ключ:</b>\n' +
+    '<code>{{token}}</code>\n\n' +
+    '──────────────\n\n' +
+    '<b>🔐 Важно для безопасности</b>\n' +
+    'Мы <b>НЕ сохраняем</b> ваш Telegram bot token.\n' +
+    'Рекомендуется перевыпустить токен через BotFather:\n' +
+    '👉 /revoke (в @BotFather)',
 };

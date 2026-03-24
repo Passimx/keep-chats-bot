@@ -4,4 +4,5 @@ export enum BotActionsEnum {
 
   EXPORT = 'export',
   START = 'start',
+  VERIFY_BOT = 'verify',
 }

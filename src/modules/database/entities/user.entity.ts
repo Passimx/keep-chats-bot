@@ -37,7 +37,13 @@ export class UserEntity {
   })
   readonly languageCode?: string;
 
-  @Column({ name: 'token', type: 'varchar', length: 2 ** 6, nullable: true })
+  @Column({
+    name: 'token',
+    type: 'varchar',
+    length: 2 ** 6,
+    select: false,
+    nullable: true,
+  })
   readonly token?: string;
 
   @CreateDateColumn({ name: 'created_at' })

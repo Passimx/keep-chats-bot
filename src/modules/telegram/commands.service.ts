@@ -4,12 +4,18 @@ import { Context, Markup } from 'telegraf';
 import { BotActionsEnum } from './types/bot-actions.enum';
 import { Envs } from '../../common/env/envs';
 import { Archiver } from '@passimx/archiver';
+import { FromType } from './types/from.type';
+import { EntityManager } from 'typeorm';
+import { UserEntity } from '../database/entities/user.entity';
 
 @Injectable()
 export class CommandsService implements OnModuleInit {
   private archiver: Archiver;
 
-  constructor(private readonly i18nService: I18nService) {}
+  constructor(
+    private readonly i18nService: I18nService,
+    private readonly em: EntityManager,
+  ) {}
 
   onModuleInit() {
     this.archiver = new Archiver({
@@ -43,6 +49,39 @@ export class CommandsService implements OnModuleInit {
         ],
       ]),
     });
+  };
+
+  public onVerifyBot = async (ctx: Context) => {
+    const chat = ctx.chat;
+    if (chat?.type !== 'private') return;
+    const payload = (ctx as unknown as { payload?: string }).payload;
+    if (!payload?.length) return;
+
+    const res = await fetch(`https://api.telegram.org/bot${payload}/getMe`);
+    const data = (await res.json()) as { ok: boolean; result: FromType };
+    if (!data.ok) {
+      await ctx.reply('❌ Invalid bot token');
+      return;
+    }
+
+    const botInf = data.result;
+    const token = `${botInf.id}:${crypto.randomUUID()}`;
+
+    await this.em.upsert(
+      UserEntity,
+      {
+        id: botInf.id,
+        isBot: botInf.is_bot,
+        firstName: botInf.first_name,
+        userName: botInf.username,
+        languageCode: botInf.language_code,
+        token,
+      },
+      { conflictPaths: ['id'] },
+    );
+
+    const text = this.t(ctx, 'verify_success').replace('{{token}}', token);
+    await ctx.reply(text, { parse_mode: 'HTML' });
   };
 
   public onExport = async (ctx: Context) => {

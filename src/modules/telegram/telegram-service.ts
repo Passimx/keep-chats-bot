@@ -38,6 +38,7 @@ export class TelegramService implements OnModuleInit {
     const commandArray: ActionsArrayType = [
       [BotActionsEnum.START, this.commandsService.onStart],
       [BotActionsEnum.EXPORT, this.commandsService.onExport],
+      [BotActionsEnum.VERIFY_BOT, this.commandsService.onVerifyBot],
     ];
     const actionArray: ActionsArrayType = [
       [BotActionsEnum.MENU, this.commandsService.onMenu],
