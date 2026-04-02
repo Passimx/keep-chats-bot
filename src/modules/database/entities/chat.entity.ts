@@ -14,7 +14,7 @@ export class ChatEntity {
   @Column({ name: 'id', type: 'varchar', primary: true, length: 2 ** 4 })
   readonly id: number;
 
-  @Column({ name: 'title', type: 'varchar', length: 2 ** 7 })
+  @Column({ name: 'title', type: 'varchar', length: 2 ** 7, nullable: true })
   readonly title: string;
 
   @Column({ name: 'type', type: 'varchar', length: 2 ** 4 })
