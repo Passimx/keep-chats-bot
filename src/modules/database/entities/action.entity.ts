@@ -1,11 +1,8 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity } from 'typeorm';
 import { UpdateType } from '../../telegram/types/update.type';
 
 @Entity({ name: 'actions' })
 export class ActionEntity {
-  @PrimaryGeneratedColumn('rowid')
-  readonly id: string;
-
-  @Column({ name: 'info', type: 'jsonb' })
+  @Column({ name: 'info', type: 'jsonb', primary: true })
   readonly info: UpdateType;
 }

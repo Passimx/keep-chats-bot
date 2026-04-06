@@ -17,9 +17,7 @@ export class ActionsService {
   constructor(private readonly em: EntityManager) {}
 
   public saveAction = async (bot: UserEntity, body: UpdateType) => {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-expect-error
-    await this.em.insert(ActionEntity, body);
+    await this.em.insert(ActionEntity, { info: body });
 
     if (body.edited_message) await this.onEditMessage(body.edited_message, bot);
     if (body.callback_query)
