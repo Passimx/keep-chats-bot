@@ -10,12 +10,17 @@ import { FromType } from './types/from.type';
 import { ChatType } from './types/chat.type';
 import { MyChatMember } from './types/my-chat-member.type';
 import { ChatTypeEnum } from './types/chat-type.enum';
+import { ActionEntity } from '../database/entities/action.entity';
 
 @Injectable()
 export class ActionsService {
   constructor(private readonly em: EntityManager) {}
 
   public saveAction = async (bot: UserEntity, body: UpdateType) => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    await this.em.insert(ActionEntity, body);
+
     if (body.edited_message) await this.onEditMessage(body.edited_message, bot);
     if (body.callback_query)
       await this.onCallbackQuery(body.callback_query, bot);
